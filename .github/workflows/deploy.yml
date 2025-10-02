@@ -76,19 +76,6 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Copy docker-compose to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_KEY }}
-        port: ${{ secrets.PORT }}
-        source: "docker-compose.prod.yml"
-        target: "~/mindera-games"
-
     - name: Deploy with Docker Compose
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -101,8 +88,30 @@ jobs:
           mkdir -p ~/mindera-games
           cd ~/mindera-games
           
-          # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Criar docker-compose.prod.yml
+          cat > docker-compose.prod.yml << 'EOF'
+          version: '3.8'
+
+          services:
+            backend:
+              image: ghcr.io/${{ github.repository }}/backend:latest
+              container_name: halloweengo-backend
+              ports:
+                - "5002:5002"
+              restart: unless-stopped
+              environment:
+                - NODE_ENV=production
+                - PORT=5002
+
+            frontend:
+              image: ghcr.io/${{ github.repository }}/frontend:latest
+              container_name: halloweengo-frontend
+              ports:
+                - "3000:3000"
+              restart: unless-stopped
+              depends_on:
+                - backend
+          EOF
           
           # Pull latest images
           docker compose -f docker-compose.prod.yml pull
