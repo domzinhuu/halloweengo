@@ -32,41 +32,25 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata for backend
-      id: meta-backend
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
-        tags: |
-          type=raw,value=latest
-          type=sha,prefix={{branch}}-
-
     - name: Build and push backend image
       uses: docker/build-push-action@v5
       with:
         context: ./backend
         push: true
-        tags: ${{ steps.meta-backend.outputs.tags }}
-        labels: ${{ steps.meta-backend.outputs.labels }}
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
         cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:buildcache
         cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:buildcache,mode=max
-
-    - name: Extract metadata for frontend
-      id: meta-frontend
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
-        tags: |
-          type=raw,value=latest
-          type=sha,prefix={{branch}}-
 
     - name: Build and push frontend image
       uses: docker/build-push-action@v5
       with:
         context: ./frontend
         push: true
-        tags: ${{ steps.meta-frontend.outputs.tags }}
-        labels: ${{ steps.meta-frontend.outputs.labels }}
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
         cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:buildcache
         cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:buildcache,mode=max
 
@@ -76,44 +60,41 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Deploy with Docker Compose
-      uses: appleboy/ssh-action@v1.0.0
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Prepare Server Directory
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
-        timeout: 60s
-        command_timeout: 10m
         script: |
-          # Criar diretório se não existir
           mkdir -p ~/mindera-games
+          sudo chown -R $USER:$USER ~/mindera-games
+          sudo chmod -R 755 ~/mindera-games
+
+    - name: Copy files to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT }}
+        source: "docker-compose.prod.yml"
+        target: "~/mindera-games"
+        strip_components: 0
+
+    - name: Deploy Services
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
           cd ~/mindera-games
-          
-          # Criar docker-compose.prod.yml
-          cat > docker-compose.prod.yml << 'EOF'
-          version: '3.8'
-
-          services:
-            backend:
-              image: ghcr.io/${{ github.repository }}/backend:latest
-              container_name: halloweengo-backend
-              ports:
-                - "5002:5002"
-              restart: unless-stopped
-              environment:
-                - NODE_ENV=production
-                - PORT=5002
-
-            frontend:
-              image: ghcr.io/${{ github.repository }}/frontend:latest
-              container_name: halloweengo-frontend
-              ports:
-                - "3000:3000"
-              restart: unless-stopped
-              depends_on:
-                - backend
-          EOF
           
           # Login to GitHub Container Registry
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -122,7 +103,7 @@ jobs:
           docker compose -f docker-compose.prod.yml pull
           
           # Stop and remove old containers
-          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml down --remove-orphans || true
           
           # Start new containers
           docker compose -f docker-compose.prod.yml up -d
@@ -130,5 +111,5 @@ jobs:
           # Clean up old images
           docker image prune -af
           
-          # Show running containers
+          echo "🔍 Verificando status dos serviços..."
           docker compose -f docker-compose.prod.yml ps
