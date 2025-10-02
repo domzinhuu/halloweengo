@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-domzinhuu/halloweengo}/backend:latest
+    container_name: halloweengo-backend
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5002
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY:-domzinhuu/halloweengo}/frontend:latest
+    container_name: halloweengo-frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
