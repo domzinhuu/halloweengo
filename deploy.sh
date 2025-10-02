@@ -26,9 +26,7 @@ docker stop halloweengo-frontend 2>/dev/null || true
 docker rm halloweengo-frontend 2>/dev/null || true
 docker run -d --name halloweengo-frontend -p 3000:3000 --restart unless-stopped halloweengo-frontend
 
-# Clean up old images
-echo "🧹 Cleaning up old images..."
-docker image prune -f
+# Skip image cleanup to avoid affecting other applications
 
 echo "✅ Deployment completed successfully!"
 echo "🌐 Frontend: http://your-server:3000"

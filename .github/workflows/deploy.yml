@@ -53,6 +53,7 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
+        timeout: 300s
         script: |
           # Navigate to project directory
           cd /home/${{ secrets.USERNAME }}/halloweengo
@@ -73,6 +74,3 @@ jobs:
           docker stop halloweengo-frontend || true
           docker rm halloweengo-frontend || true
           docker run -d --name halloweengo-frontend -p 3000:3000 halloweengo-frontend
-          
-          # Clean up old images
-          docker image prune -f
