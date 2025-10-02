@@ -1,0 +1,75 @@
+name: Deploy Halloween Bingo
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    # Build Backend
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Build backend
+      run: |
+        cd backend
+        npm run build
+
+    # Build Frontend
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    # Deploy to server
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          # Navigate to project directory
+          cd /home/${{ secrets.USERNAME }}/halloweengo
+          
+          # Pull latest changes
+          git pull origin main
+          
+          # Build and restart backend
+          cd backend
+          docker build -t halloweengo-backend .
+          docker stop halloweengo-backend || true
+          docker rm halloweengo-backend || true
+          docker run -d --name halloweengo-backend -p 5002:5002 halloweengo-backend
+          
+          # Build and restart frontend
+          cd ../frontend
+          docker build -t halloweengo-frontend .
+          docker stop halloweengo-frontend || true
+          docker rm halloweengo-frontend || true
+          docker run -d --name halloweengo-frontend -p 3000:3000 halloweengo-frontend
+          
+          # Clean up old images
+          docker image prune -f
