@@ -1,0 +1,168 @@
+import { Server, Socket } from 'socket.io';
+import { roomManager } from '../utils/roomManager';
+import { checkBingo } from '../utils/cardGenerator';
+import { GameEvents } from '../types/game';
+
+export function setupSocketEvents(io: Server) {
+  io.on('connection', (socket: Socket) => {
+    console.log('Usuário conectado:', socket.id);
+    
+    // Armazena informações do jogador para reconexão
+    let playerInfo: { roomId?: string; playerName?: string } = {};
+
+    socket.on('join-room', (data: GameEvents['join-room']) => {
+      const { roomId, playerName } = data;
+      
+      // Armazena info do jogador
+      playerInfo = { roomId, playerName };
+      
+      // Se sala não existe, cria uma nova
+      let room = roomManager.getRoom(roomId);
+      if (!room) {
+        room = roomManager.createRoom(roomId, `Sala ${roomId}`, socket.id, playerName);
+        socket.join(roomId);
+        socket.emit('room-updated', room);
+        console.log(`Sala ${roomId} criada por ${playerName}`);
+        return;
+      }
+
+      // Verifica se já existe um jogador com o mesmo nome na sala (incluindo desconectados)
+      const existingPlayer = room.players.find(p => p.name === playerName);
+      if (existingPlayer) {
+        // Reconecta o jogador existente (atualiza socket.id mas mantém cartela e marcações)
+        existingPlayer.id = socket.id;
+        socket.join(roomId);
+        socket.emit('room-updated', room);
+        console.log(`${playerName} reconectou na sala ${roomId} - cartela preservada`);
+        return;
+      }
+
+      // Tenta entrar na sala existente como novo jogador
+      room = roomManager.joinRoom(roomId, socket.id, playerName);
+      if (room) {
+        socket.join(roomId);
+        io.to(roomId).emit('room-updated', room);
+        console.log(`${playerName} entrou na sala ${roomId}`);
+      } else {
+        socket.emit('error', 'Sala cheia ou não encontrada');
+      }
+    });
+
+    socket.on('leave-room', (data: GameEvents['leave-room']) => {
+      const { roomId } = data;
+      const room = roomManager.leaveRoom(roomId, socket.id);
+      
+      if (room) {
+        socket.leave(roomId);
+        io.to(roomId).emit('room-updated', room);
+        console.log(`Usuário saiu da sala ${roomId}`);
+      }
+    });
+
+    socket.on('draw-item', (data: GameEvents['draw-item']) => {
+      const { roomId } = data;
+      const room = roomManager.getRoom(roomId);
+      
+      console.log('Draw item request:', { roomId, socketId: socket.id, masterId: room?.master?.id });
+      
+      if (!room || room.master?.id !== socket.id) {
+        console.log('Draw item failed:', { hasRoom: !!room, isMaster: room?.master?.id === socket.id });
+        socket.emit('error', 'Apenas o mestre pode sortear items');
+        return;
+      }
+
+      const drawnItem = roomManager.drawItem(roomId);
+      if (drawnItem) {
+        io.to(roomId).emit('item-drawn', drawnItem);
+        io.to(roomId).emit('room-updated', room); // ADICIONADO: Atualiza a sala
+        console.log(`Item sorteado: ${drawnItem}`);
+      } else {
+        socket.emit('error', 'Não há mais items para sortear');
+      }
+    });
+
+    socket.on('mark-item', (data: GameEvents['mark-item']) => {
+      const { roomId, row, col } = data;
+      const room = roomManager.getRoom(roomId);
+      
+      if (!room) return;
+
+      const player = room.players.find(p => p.id === socket.id);
+      if (!player) return;
+
+      // Verifica se o item foi sorteado
+      const itemToMark = player.card[row][col];
+      if (!room.drawnItems.includes(itemToMark)) {
+        socket.emit('error', 'Este item ainda não foi sorteado!');
+        return;
+      }
+
+      player.markedItems[row][col] = true;
+      
+      // Verifica se fez bingo
+      if (checkBingo(player.markedItems)) {
+        io.to(roomId).emit('bingo-winner', player);
+        room.gameStatus = 'finished';
+        console.log(`BINGO! ${player.name} venceu!`);
+      }
+
+      io.to(roomId).emit('room-updated', room);
+    });
+
+    socket.on('claim-bingo', (data: GameEvents['claim-bingo']) => {
+      const { roomId } = data;
+      const room = roomManager.getRoom(roomId);
+      
+      if (!room) return;
+
+      const player = room.players.find(p => p.id === socket.id);
+      if (!player) return;
+
+      // Verifica se realmente fez bingo com items sorteados
+      if (checkBingo(player.markedItems)) {
+        // Valida se todos os items marcados foram sorteados
+        let validBingo = true;
+        for (let i = 0; i < 5; i++) {
+          for (let j = 0; j < 5; j++) {
+            if (player.markedItems[i][j]) {
+              const item = player.card[i][j];
+              if (!room.drawnItems.includes(item)) {
+                validBingo = false;
+                break;
+              }
+            }
+          }
+          if (!validBingo) break;
+        }
+
+        if (validBingo) {
+          io.to(roomId).emit('bingo-winner', player);
+          room.gameStatus = 'finished';
+          console.log(`BINGO confirmado! ${player.name} venceu!`);
+        } else {
+          socket.emit('error', 'Bingo inválido! Você marcou items não sorteados.');
+        }
+      } else {
+        socket.emit('error', 'Você ainda não fez bingo');
+      }
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Usuário desconectado:', socket.id);
+      
+      // NÃO remove o jogador da sala quando desconecta - apenas marca como desconectado
+      // Isso permite reconexão com a mesma cartela
+      if (playerInfo.roomId) {
+        const room = roomManager.getRoom(playerInfo.roomId);
+        if (room) {
+          const player = room.players.find(p => p.id === socket.id);
+          if (player) {
+            // Marca como desconectado mas mantém na sala
+            player.id = 'disconnected';
+            console.log(`Jogador ${playerInfo.playerName} marcado como desconectado na sala ${playerInfo.roomId}`);
+          }
+        }
+      }
+    });
+  });
+}
