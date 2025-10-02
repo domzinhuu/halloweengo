@@ -83,6 +83,8 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
+        timeout: 60s
+        command_timeout: 10m
         script: |
           # Criar diretório se não existir
           mkdir -p ~/mindera-games
@@ -112,6 +114,9 @@ jobs:
               depends_on:
                 - backend
           EOF
+          
+          # Login to GitHub Container Registry
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Pull latest images
           docker compose -f docker-compose.prod.yml pull
