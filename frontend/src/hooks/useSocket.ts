@@ -11,7 +11,9 @@ export const useSocket = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const newSocket = io("http://localhost:5002");
+    const newSocket = io(window.location.origin, {
+      path: '/socket.io/'
+    });
     setSocket(newSocket);
 
     newSocket.on("room-updated", (roomData: Room) => {
