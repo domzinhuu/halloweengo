@@ -15,7 +15,7 @@ services:
     build: ./frontend
     container_name: halloweengo-frontend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     restart: unless-stopped
     depends_on:
       - backend
