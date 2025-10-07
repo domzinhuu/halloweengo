@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { setupSocketEvents } from './socket/socketHandlers';
+import { roomManager } from './utils/roomManager';
 
 const app = express();
 const server = createServer(app);
