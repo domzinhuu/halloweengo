@@ -29,10 +29,10 @@ export function setupSocketEvents(io: Server) {
       // Verifica se já existe um jogador com o mesmo nome na sala (incluindo desconectados)
       const existingPlayer = room.players.find(p => p.name === playerName);
       if (existingPlayer) {
-        // Reconecta o jogador existente (atualiza socket.id mas mantém cartela e marcações)
-        existingPlayer.id = socket.id;
+        // Reconecta o jogador existente usando o roomManager
+        roomManager.reconnectPlayer(roomId, socket.id, playerName);
         socket.join(roomId);
-        socket.emit('room-updated', room);
+        io.to(roomId).emit('room-updated', room);
         console.log(`${playerName} reconectou na sala ${roomId} - cartela preservada`);
         return;
       }
@@ -52,10 +52,15 @@ export function setupSocketEvents(io: Server) {
       const { roomId } = data;
       const room = roomManager.leaveRoom(roomId, socket.id);
       
+      socket.leave(roomId);
+      
       if (room) {
-        socket.leave(roomId);
         io.to(roomId).emit('room-updated', room);
         console.log(`Usuário saiu da sala ${roomId}`);
+      } else {
+        // Sala foi removida por estar vazia
+        roomManager.cleanEmptyRoom(roomId);
+        console.log(`Sala ${roomId} removida (vazia)`);
       }
     });
 
@@ -150,18 +155,20 @@ export function setupSocketEvents(io: Server) {
     socket.on('disconnect', () => {
       console.log('Usuário desconectado:', socket.id);
       
-      // NÃO remove o jogador da sala quando desconecta - apenas marca como desconectado
-      // Isso permite reconexão com a mesma cartela
-      if (playerInfo.roomId) {
-        const room = roomManager.getRoom(playerInfo.roomId);
-        if (room) {
-          const player = room.players.find(p => p.id === socket.id);
-          if (player) {
-            // Marca como desconectado mas mantém na sala
-            player.id = 'disconnected';
-            console.log(`Jogador ${playerInfo.playerName} marcado como desconectado na sala ${playerInfo.roomId}`);
+      // Marca jogador como desconectado e inicia timer de 30s
+      if (playerInfo.roomId && playerInfo.playerName) {
+        roomManager.markPlayerDisconnected(
+          playerInfo.roomId,
+          socket.id,
+          playerInfo.playerName,
+          () => {
+            // Callback executado quando o timer expira
+            const room = roomManager.getRoom(playerInfo.roomId!);
+            if (room) {
+              io.to(playerInfo.roomId!).emit('room-updated', room);
+            }
           }
-        }
+        );
       }
     });
   });
