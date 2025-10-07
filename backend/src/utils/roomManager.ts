@@ -97,6 +97,10 @@ class RoomManager {
     return this.rooms.get(roomId) || null;
   }
 
+  getAllRooms(): Room[] {
+    return Array.from(this.rooms.values());
+  }
+
   drawItem(roomId: string): HalloweenItem | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;

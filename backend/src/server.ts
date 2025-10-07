@@ -18,6 +18,12 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5002;
 
+// API Routes
+app.get('/api/rooms', (req, res) => {
+  const rooms = roomManager.getAllRooms();
+  res.json(rooms);
+});
+
 setupSocketEvents(io);
 
 server.listen(PORT, () => {

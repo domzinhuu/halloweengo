@@ -6,6 +6,7 @@ export const Game: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [isJoined, setIsJoined] = useState(false);
+  const [rooms, setRooms] = useState<any[]>([]);
   
   const {
     room,
@@ -21,9 +22,32 @@ export const Game: React.FC = () => {
     clearError
   } = useSocket();
 
-  const handleJoinRoom = () => {
-    if (playerName.trim() && roomId.trim()) {
-      joinRoom(roomId, playerName);
+  const fetchRooms = async () => {
+    try {
+      const response = await fetch(`${window.location.origin}/api/rooms`);
+      const data = await response.json();
+      setRooms(data);
+    } catch (error) {
+      console.error('Erro ao buscar salas:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 5000); // Atualiza a cada 5s
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleJoinRoom = (selectedRoomId?: string) => {
+    const finalRoomId = selectedRoomId || roomId;
+    
+    if (!playerName.trim()) {
+      alert('Por favor, informe seu nome primeiro!');
+      return;
+    }
+    
+    if (finalRoomId.trim()) {
+      joinRoom(finalRoomId, playerName);
       setIsJoined(true);
     }
   };
@@ -85,13 +109,45 @@ export const Game: React.FC = () => {
             </div>
             
             <button
-              onClick={handleJoinRoom}
+              onClick={() => handleJoinRoom()}
               disabled={!playerName.trim() || !roomId.trim()}
               className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white font-bold py-3 px-4 rounded transition-colors"
             >
               Entrar na Sala
             </button>
           </div>
+
+          {/* Lista de Salas */}
+          {rooms.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-white font-bold mb-3">Salas Disponíveis:</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {rooms.map((r) => (
+                  <div 
+                    key={r.id}
+                    onClick={() => handleJoinRoom(r.id)}
+                    className="bg-gray-700 p-3 rounded cursor-pointer hover:bg-gray-600 transition-colors"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-bold">{r.name}</p>
+                        <p className="text-gray-400 text-sm">
+                          {r.players.length}/{r.maxPlayers} jogadores
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        r.gameStatus === 'waiting' ? 'bg-green-600' : 
+                        r.gameStatus === 'playing' ? 'bg-yellow-600' : 'bg-red-600'
+                      } text-white`}>
+                        {r.gameStatus === 'waiting' ? 'Aguardando' : 
+                         r.gameStatus === 'playing' ? 'Em jogo' : 'Finalizado'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
