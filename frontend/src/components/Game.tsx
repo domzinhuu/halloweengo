@@ -157,141 +157,240 @@ export const Game: React.FC = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {/* Sidebar - Lista de Jogadores */}
-      <div className="w-64 bg-gray-800 p-4">
-        <h3 className="text-white font-bold mb-4">Jogadores na Sala</h3>
-        {room && (
-          <div className="space-y-2">
-            {room.players.map((player) => (
-              <div 
-                key={player.id}
-                className={`p-3 rounded text-sm ${
-                  player.isMaster 
-                    ? 'bg-orange-600 text-white' 
-                    : 'bg-gray-700 text-white'
-                }`}
-              >
-                {player.name} {player.isMaster ? '(Mestre)' : ''}
+          // Layout para JOGADORES (com cartela)
+          if (currentPlayer && !currentPlayer.isMaster) {
+            return (
+              <div className="min-h-screen bg-gray-900 flex">
+                {/* Sidebar Esquerda - Lista de Jogadores */}
+                <div className="w-64 bg-gray-800 p-4 overflow-y-auto">
+                  <h3 className="text-white font-bold mb-4">Jogadores na Sala</h3>
+                  {room && (
+                    <div className="space-y-2">
+                      {room.players.map((player) => (
+                        <div 
+                          key={player.id}
+                          className={`p-3 rounded text-sm ${
+                            player.isMaster 
+                              ? 'bg-orange-600 text-white' 
+                              : 'bg-gray-700 text-white'
+                          }`}
+                        >
+                          {player.name} {player.isMaster ? '(Mestre)' : ''}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Centro - Cartela de Bingo */}
+                <div className="flex-1 p-4 flex flex-col items-center justify-start">
+                  {/* Header compacto */}
+                  <div className="w-full max-w-2xl mb-4 bg-gray-800 rounded-lg p-3 flex justify-between items-center">
+                    <h1 className="text-xl font-bold text-orange-500">
+                      🎃 Sala: {roomId}
+                    </h1>
+                    <button
+                      onClick={handleLeaveRoom}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm"
+                    >
+                      Sair
+                    </button>
+                  </div>
+
+                  {/* Cartela de Bingo centralizada */}
+                  <div className="max-w-2xl">
+                    <BingoCard
+                      card={currentPlayer.card}
+                      markedItems={currentPlayer.markedItems}
+                      onMarkItem={handleMarkItem}
+                      isMaster={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Sidebar Direita - Informações do Jogo */}
+                <div className="w-80 bg-gray-800 p-4 overflow-y-auto space-y-4">
+                  {/* Error Message */}
+                  {error && (
+                    <div className="bg-red-600 text-white p-3 rounded text-sm">
+                      {error}
+                      <button onClick={clearError} className="ml-2 underline">Fechar</button>
+                    </div>
+                  )}
+
+                  {/* Winner Message */}
+                  {winner && (
+                    <div className="bg-green-600 text-white p-3 rounded text-center">
+                      <h2 className="text-lg font-bold">🎉 BINGO! 🎉</h2>
+                      <p className="text-sm">{winner.name} venceu!</p>
+                    </div>
+                  )}
+
+                  {/* Drawn Item */}
+                  {drawnItem && (
+                    <div className="bg-orange-600 text-white p-3 rounded text-center">
+                      <h2 className="text-lg font-bold">Item Sorteado:</h2>
+                      <p className="text-base">{drawnItem}</p>
+                    </div>
+                  )}
+
+                  {/* Player Controls */}
+                  <div className="bg-gray-700 p-3 rounded">
+                    <button
+                      onClick={handleClaimBingo}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded font-bold"
+                    >
+                      Declarar Bingo
+                    </button>
+                  </div>
+
+                  {/* Room Info */}
+                  {room && (
+                    <div className="bg-gray-700 p-3 rounded text-white text-sm">
+                      <p><strong>Jogadores:</strong> {room.players.length}/{room.maxPlayers}</p>
+                      <p><strong>Status:</strong> {room.gameStatus}</p>
+                    </div>
+                  )}
+
+                  {/* Items History */}
+                  {room && (
+                    <div className="bg-gray-700 p-3 rounded">
+                      <h3 className="text-white font-bold mb-2 text-sm">
+                        Itens Sorteados ({room.drawnItems.length}):
+                      </h3>
+                      {room.drawnItems.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto">
+                          {room.drawnItems.map((item, index) => (
+                            <span 
+                              key={index}
+                              className="bg-orange-600 text-white px-2 py-1 rounded text-xs"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 text-xs">Nenhum item sorteado ainda</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          }
 
-      {/* Main Content */}
-      <div className="flex-1 p-4">
-        <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-orange-500">
-              🎃 Halloween Bingo - Sala: {roomId}
-            </h1>
-            <button
-              onClick={handleLeaveRoom}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-            >
-              Sair da Sala
-            </button>
-          </div>
-          
-          {room && (
-            <div className="mt-2 text-white">
-              <p>Jogadores: {room.players.length}/{room.maxPlayers}</p>
-              <p>Status: {room.gameStatus}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-600 text-white p-4 rounded mb-4">
-            {error}
-            <button onClick={clearError} className="ml-4 underline">Fechar</button>
-          </div>
-        )}
-
-        {/* Winner Message */}
-        {winner && (
-          <div className="bg-green-600 text-white p-4 rounded mb-4 text-center">
-            <h2 className="text-xl font-bold">🎉 BINGO! 🎉</h2>
-            <p>{winner.name} venceu!</p>
-          </div>
-        )}
-
-        {/* Drawn Item */}
-        {drawnItem && (
-          <div className="bg-orange-600 text-white p-4 rounded mb-4 text-center">
-            <h2 className="text-xl font-bold">Item Sorteado:</h2>
-            <p className="text-lg">{drawnItem}</p>
-          </div>
-        )}
-
-        {/* Items History */}
-        {room && (
-          <div className="bg-gray-800 p-4 rounded mb-6">
-            <h3 className="text-white font-bold mb-2">
-              Itens Sorteados ({room.drawnItems.length}):
-            </h3>
-            {room.drawnItems.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {room.drawnItems.map((item, index) => (
-                  <span 
-                    key={index}
-                    className="bg-orange-600 text-white px-3 py-1 rounded text-sm"
-                  >
-                    {item}
-                  </span>
-                ))}
+          // Layout para MESTRE (sem cartela - layout original)
+          return (
+            <div className="min-h-screen bg-gray-900 flex">
+              {/* Sidebar - Lista de Jogadores */}
+              <div className="w-64 bg-gray-800 p-4">
+                <h3 className="text-white font-bold mb-4">Jogadores na Sala</h3>
+                {room && (
+                  <div className="space-y-2">
+                    {room.players.map((player) => (
+                      <div 
+                        key={player.id}
+                        className={`p-3 rounded text-sm ${
+                          player.isMaster 
+                            ? 'bg-orange-600 text-white' 
+                            : 'bg-gray-700 text-white'
+                        }`}
+                      >
+                        {player.name} {player.isMaster ? '(Mestre)' : ''}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : (
-              <p className="text-gray-400">Nenhum item sorteado ainda</p>
-            )}
-          </div>
-        )}
 
-        {/* Master Controls */}
-        {currentPlayer?.isMaster && (
-          <div className="bg-gray-800 p-4 rounded mb-6">
-            <h3 className="text-white font-bold mb-2">Controles do Mestre</h3>
-            <div className="space-x-4">
-              <button
-                onClick={handleDrawItem}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded"
-              >
-                Sortear Item
-              </button>
+              {/* Main Content */}
+              <div className="flex-1 p-4">
+                <div className="max-w-6xl mx-auto">
+                {/* Header */}
+                <div className="bg-gray-800 rounded-lg p-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <h1 className="text-2xl font-bold text-orange-500">
+                      🎃 Halloween Bingo - Sala: {roomId}
+                    </h1>
+                    <button
+                      onClick={handleLeaveRoom}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                    >
+                      Sair da Sala
+                    </button>
+                  </div>
+                  
+                  {room && (
+                    <div className="mt-2 text-white">
+                      <p>Jogadores: {room.players.length}/{room.maxPlayers}</p>
+                      <p>Status: {room.gameStatus}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-600 text-white p-4 rounded mb-4">
+                    {error}
+                    <button onClick={clearError} className="ml-4 underline">Fechar</button>
+                  </div>
+                )}
+
+                {/* Winner Message */}
+                {winner && (
+                  <div className="bg-green-600 text-white p-4 rounded mb-4 text-center">
+                    <h2 className="text-xl font-bold">🎉 BINGO! 🎉</h2>
+                    <p>{winner.name} venceu!</p>
+                  </div>
+                )}
+
+                {/* Drawn Item */}
+                {drawnItem && (
+                  <div className="bg-orange-600 text-white p-4 rounded mb-4 text-center">
+                    <h2 className="text-xl font-bold">Item Sorteado:</h2>
+                    <p className="text-lg">{drawnItem}</p>
+                  </div>
+                )}
+
+                {/* Items History */}
+                {room && (
+                  <div className="bg-gray-800 p-4 rounded mb-6">
+                    <h3 className="text-white font-bold mb-2">
+                      Itens Sorteados ({room.drawnItems.length}):
+                    </h3>
+                    {room.drawnItems.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {room.drawnItems.map((item, index) => (
+                          <span 
+                            key={index}
+                            className="bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400">Nenhum item sorteado ainda</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Master Controls */}
+                {currentPlayer?.isMaster && (
+                  <div className="bg-gray-800 p-4 rounded mb-6">
+                    <h3 className="text-white font-bold mb-2">Controles do Mestre</h3>
+                    <div className="space-x-4">
+                      <button
+                        onClick={handleDrawItem}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded"
+                      >
+                        Sortear Item
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Player Controls */}
-        {currentPlayer && !currentPlayer.isMaster && (
-          <div className="bg-gray-800 p-4 rounded mb-6">
-            <button
-              onClick={handleClaimBingo}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-            >
-              Declarar Bingo
-            </button>
-          </div>
-        )}
-
-        {/* Game Card */}
-        {currentPlayer && !currentPlayer.isMaster && (
-          <div className="max-w-2xl mx-auto">
-            <BingoCard
-              card={currentPlayer.card}
-              markedItems={currentPlayer.markedItems}
-              onMarkItem={handleMarkItem}
-              isMaster={false}
-            />
-          </div>
-        )}
-        </div>
-      </div>
-    </div>
-  );
+          );
 };
