@@ -24,7 +24,11 @@ export const Game: React.FC = () => {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch(`${window.location.origin}/api/rooms`);
+      // Detecta ambiente: desenvolvimento usa localhost:5002, produção usa window.location.origin
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const backendUrl = isDevelopment ? 'http://localhost:5002' : window.location.origin;
+      
+      const response = await fetch(`${backendUrl}/api/rooms`);
       const data = await response.json();
       setRooms(data);
     } catch (error) {

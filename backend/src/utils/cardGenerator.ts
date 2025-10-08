@@ -24,29 +24,14 @@ export function generateCardNumber(): number {
 }
 
 export function checkBingo(markedItems: boolean[][]): boolean {
-  // Verifica linhas horizontais
+  // Bingo só é válido se TODA a cartela estiver preenchida (25 itens)
   for (let i = 0; i < 5; i++) {
-    if (markedItems[i].every(marked => marked)) {
-      return true;
+    for (let j = 0; j < 5; j++) {
+      if (!markedItems[i][j]) {
+        return false; // Se encontrar algum item não marcado, não é bingo
+      }
     }
   }
   
-  // Verifica colunas verticais
-  for (let j = 0; j < 5; j++) {
-    if (markedItems.every(row => row[j])) {
-      return true;
-    }
-  }
-  
-  // Verifica diagonal principal
-  if (markedItems.every((row, i) => row[i])) {
-    return true;
-  }
-  
-  // Verifica diagonal secundária
-  if (markedItems.every((row, i) => row[4 - i])) {
-    return true;
-  }
-  
-  return false;
+  return true; // Todos os 25 itens marcados = BINGO!
 }

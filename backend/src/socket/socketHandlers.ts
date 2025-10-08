@@ -104,12 +104,7 @@ export function setupSocketEvents(io: Server) {
 
       player.markedItems[row][col] = true;
       
-      // Verifica se fez bingo
-      if (checkBingo(player.markedItems)) {
-        io.to(roomId).emit('bingo-winner', player);
-        room.gameStatus = 'finished';
-        console.log(`BINGO! ${player.name} venceu!`);
-      }
+      // NÃO verifica bingo automaticamente - jogador deve declarar manualmente
 
       io.to(roomId).emit('room-updated', room);
     });
@@ -120,35 +115,44 @@ export function setupSocketEvents(io: Server) {
       
       if (!room) return;
 
+      // IMPORTANTE: Verifica se já existe um vencedor (primeira validação - só aceita o primeiro)
+      if (room.gameStatus === 'finished') {
+        socket.emit('error', 'O bingo já foi decretado por outro jogador!');
+        return;
+      }
+
       const player = room.players.find(p => p.id === socket.id);
       if (!player) return;
 
-      // Verifica se realmente fez bingo com items sorteados
-      if (checkBingo(player.markedItems)) {
-        // Valida se todos os items marcados foram sorteados
-        let validBingo = true;
-        for (let i = 0; i < 5; i++) {
-          for (let j = 0; j < 5; j++) {
-            if (player.markedItems[i][j]) {
-              const item = player.card[i][j];
-              if (!room.drawnItems.includes(item)) {
-                validBingo = false;
-                break;
-              }
+      // Verifica se a cartela está completamente preenchida (25 itens)
+      if (!checkBingo(player.markedItems)) {
+        socket.emit('error', 'Você precisa preencher TODA a cartela para decretar bingo!');
+        return;
+      }
+
+      // Valida se todos os 25 items marcados foram realmente sorteados
+      let validBingo = true;
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+          if (player.markedItems[i][j]) {
+            const item = player.card[i][j];
+            if (!room.drawnItems.includes(item)) {
+              validBingo = false;
+              break;
             }
           }
-          if (!validBingo) break;
         }
+        if (!validBingo) break;
+      }
 
-        if (validBingo) {
-          io.to(roomId).emit('bingo-winner', player);
-          room.gameStatus = 'finished';
-          console.log(`BINGO confirmado! ${player.name} venceu!`);
-        } else {
-          socket.emit('error', 'Bingo inválido! Você marcou items não sorteados.');
-        }
+      if (validBingo) {
+        // MARCA O JOGO COMO FINALIZADO IMEDIATAMENTE (garante que só o primeiro vence)
+        room.gameStatus = 'finished';
+        io.to(roomId).emit('bingo-winner', player);
+        io.to(roomId).emit('room-updated', room);
+        console.log(`🎉 BINGO! ${player.name} venceu! (Cartela completa)`);
       } else {
-        socket.emit('error', 'Você ainda não fez bingo');
+        socket.emit('error', 'Bingo inválido! Você marcou items não sorteados.');
       }
     });
 

@@ -11,7 +11,11 @@ export const useSocket = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const newSocket = io(window.location.origin, {
+    // Detecta ambiente: desenvolvimento usa localhost:5002, produção usa window.location.origin
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const backendUrl = isDevelopment ? 'http://localhost:5002' : window.location.origin;
+    
+    const newSocket = io(backendUrl, {
       path: '/socket.io/'
     });
     setSocket(newSocket);
